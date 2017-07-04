@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>AFrame Demo</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<style>
+			html,body {
+				height: 100%;
+				width: 100%;
+				margin: 0;
+				padding: 0;
+			}
+			body {
+				display: flex;
+			}
+			body > iframe {
+				flex-grow: 1;
+				border: none;
+			}
+		</style>
+	</head>
+	<body>
+		<iframe src="index.html?stuff" seamless></iframe>
+		<iframe src="index.html" seamless></iframe>
+	</body>
+</html>

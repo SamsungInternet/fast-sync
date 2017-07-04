@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>AFrame Demo</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="./aframe.min.js"></script>
+		<script src="./aframe-environment-component.js"></script>
+		<script src="./aframe-physics-system.min.js"></script>
+		<script src="./fast-sync-component.js"></script>
+	</head>
+	<body>
+	<a-scene physics="debug: true;">
+		<a-entity environment="shadow: true; shadowSize: 10; preset: threetowers;" ></a-entity>
+	</a-scene>
+	<script type="text/html" id="demo">
+		<a-entity id="floor" position="0 -0.2 -4.5" geometry="primitive: plane; width: 20; height: 20;" visible="false" rotation="-90 0 0" position="0 -0.2 0" static-body></a-entity>
+		<a-box fast-sync material="color: blue;" position="0 0.4 -4.5" dynamic-body="mass:1;"></a-box>
+		<a-box fast-sync material="color: green;" position="-1.2 0.4 -4.5" dynamic-body="mass:1;"></a-box>
+		<a-box fast-sync material="color: yellow;" position="1.2 0.4 -4.5" dynamic-body="mass:1;"></a-box>
+		<a-box fast-sync material="color: crimson;" position="-0.55 1.5 -4.5" dynamic-body="mass:1;"></a-box>
+		<a-box fast-sync material="color: purple;" position="0.55 1.5 -4.5" dynamic-body="mass:1;"></a-box>
+		<a-box fast-sync material="color: orange;" position="0 2.6 -4.5" dynamic-body="mass:1;"></a-box>
+		<a-sphere position="0 0.5 -8" radius="0.5" dynamic-body="mass: 20;" id="ball"></a-sphere>
+	</script>
+	<script>
+		if (document.location.search === '?stuff') {
+			document.querySelector('a-scene').insertAdjacentHTML('beforeend', window.demo.textContent);
+			setTimeout(function() {
+				var el = document.querySelector('#ball');
+				el.body.applyImpulse(
+					new CANNON.Vec3(0, 60, 400),
+					new CANNON.Vec3().copy(el.getComputedAttribute('position'))
+				);
+			}, 5000);
+		}
+	</script>
+	</body>
+</html>
