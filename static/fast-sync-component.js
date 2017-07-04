@@ -113,11 +113,12 @@ AFRAME.registerSystem('fast-sync-controller', {
 			userJoinCallback: function (ws, id) {
 
 				console.log('User joined', ws.id + ':', id);
-
 				// Update newly joined user
 				Array.from(this.objects.values())
 				.forEach(function (el) {
-					ws.send(JSON.stringify(['UPDATE_REMOTE_EL', id, el.components['fast-sync'].getSyncData()]));
+					el.components['fast-sync'].getSyncTemplate().then(function(template) {
+						ws.send(JSON.stringify(['UPDATE_REMOTE_EL', id, template]));
+					});
 				});
 			}.bind(this),
 			userLeaveCallback: function (id) {
@@ -143,22 +144,10 @@ AFRAME.registerSystem('fast-sync-controller', {
 		bindata[0] = this._ws.id;
 		bindata[1] = count;
 
-		var converter;
-
 		toSerial.forEach(function (el) {
-			var pos = el.components.position.getData();
-			var rot;
-			if (el.components.quaternion) {
-				var data = el.components.quaternion.getData();
-				converter = converter || new THREE.Euler();
-				converter.setFromQuaternion(data, 'YXZ');
-				converter.x *= radToDeg;
-				converter.y *= radToDeg;
-				converter.z *= radToDeg;
-				rot = converter;
-			} else {
-				rot = el.components.rotation.getData();
-			}
+			var data = el.components['fast-sync'].getSyncData();
+			var pos = data.position;
+			var rot = data.rotation;
 			bindata[0 + index] = el.components['fast-sync'].id;
 			bindata[1 + index] = floatToUint32(rot.x);
 			bindata[2 + index] = floatToUint32(rot.y);
@@ -176,6 +165,19 @@ AFRAME.registerSystem('fast-sync-controller', {
 		while (index < message.length) {
 			var id = message[index];
 			var count = message[index + 1];
+
+			// skip self
+			if (id === ws.id) {
+				index += 2 + count * 7;
+				continue;
+			}
+
+			// Somehow a string made it as binary
+			if (count > 1024) {
+				throw Error('Something probably went wrong');
+			}
+
+			// iterate over all the data
 			while(count--) {
 				var syncId = message[index + 2];
 				if (this.foreignObjects.has(id + ',' + syncId)) {
@@ -223,7 +225,9 @@ AFRAME.registerSystem('fast-sync-controller', {
 	},
 	updateEl: function (el) {
 		this.getWs(function (ws) {
-			ws.send(JSON.stringify(['UPDATE_REMOTE_EL', el.components['fast-sync'].getSyncData()]));
+			el.components['fast-sync'].getSyncTemplate().then(function (template) {
+				ws.send(JSON.stringify(['UPDATE_REMOTE_EL', template]));
+			});
 		});
 	},
 	getWs: function getWs(callback) {
@@ -240,6 +244,14 @@ AFRAME.registerSystem('fast-sync-controller', {
 AFRAME.registerComponent('fast-sync', {
 	schema: {
 
+		'world-position': {
+			default: false
+		},
+		
+		'world-rotation': {
+			default: false
+		},
+
 		// clone an element by selector on the remote
 		clone: {
 			default: ''
@@ -255,7 +267,7 @@ AFRAME.registerComponent('fast-sync', {
 		}
 	},
 	init: function () {
-		this.el.sceneEl.systems['fast-sync-controller']
+		this._registerPromise = this.el.sceneEl.systems['fast-sync-controller']
 		.register(this.el)
 		.then(function (id) {
 			this.id = id;	
@@ -265,39 +277,64 @@ AFRAME.registerComponent('fast-sync', {
 		var controller = this.el.sceneEl.systems['fast-sync-controller'];
 		controller.updateEl.call(controller, this.el);
 	},
-	getSyncData: function() {
-	
-		var config = this.data;
-		var syncId = this.id;
-		var components = this.data.components.split(',').map(function (s) {
-			return s.toLowerCase().trim();
-		});
+	getSyncData: (function () {
+		var converter;
+		return function () {
+			var el = this.el;
+			var pos = el.components.position.getData();
+			var rot;
+			if (el.components.quaternion) {
+				var data = el.components.quaternion.getData();
+				converter = converter || new THREE.Euler();
+				converter.setFromQuaternion(data, 'YXZ');
+				converter.x *= radToDeg;
+				converter.y *= radToDeg;
+				converter.z *= radToDeg;
+				rot = converter;
+			} else {
+				rot = el.components.rotation.getData();
+			}
 
-		if (config.clone) {
 			return {
-				clone: config,
+				rotation: rot,
+				position: pos
+			}
+		}
+	}()),
+	getSyncTemplate: function() {
+		return this._registerPromise.then(function () {
+			var config = this.data;
+			var syncId = this.id;
+			var components = this.data.components.split(',').map(function (s) {
+				return s.toLowerCase().trim();
+			});
+	
+			if (config.clone) {
+				return {
+					clone: config,
+					syncId: syncId
+				};
+			}
+	
+			var newEl;
+	
+			if (config.copy !== null) {
+				newEl = config.copy.cloneNode();
+			}
+			if (config.copy === null) {
+				newEl = this.el.cloneNode();
+			}
+	
+			Array.from(newEl.attributes).forEach(function (a) {
+				if (components.includes(a.name.toLowerCase())) return;
+				newEl.removeAttribute(a.name);
+			});
+	
+			return {
+				html: newEl.outerHTML,
 				syncId: syncId
 			};
-		}
-
-		var newEl;
-
-		if (config.copy !== null) {
-			newEl = config.copy.cloneNode();
-		}
-		if (config.copy === null) {
-			newEl = this.el.cloneNode();
-		}
-
-		Array.from(newEl.attributes).forEach(function (a) {
-			if (components.includes(a.name.toLowerCase())) return;
-			newEl.removeAttribute(a.name);
-		});
-
-		return {
-			html: newEl.outerHTML,
-			syncId: syncId
-		};
+		}.bind(this));
 	},
 	remove: function () {
 		

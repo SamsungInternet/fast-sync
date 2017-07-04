@@ -8,20 +8,30 @@
 		<script src="./aframe-environment-component.js"></script>
 		<script src="./aframe-physics-system.min.js"></script>
 		<script src="./fast-sync-component.js"></script>
+		<script src="./avatar-helper-components.js"></script>
 	</head>
 	<body>
 	<a-scene physics="debug: true;">
+		<a-assets>
+			<a-asset-item id="student-obj" src="https://ada.is/vr-ada/assets/student/student.obj"></a-asset-item>
+			<a-asset-item id="student-mtl" src="https://ada.is/vr-ada/assets/student/student.mtl"></a-asset-item>
+		</a-assets>
+		<a-entity id="student-template" obj-model="obj: #student-obj; mtl: #student-mtl" visible="false" student-model scale="0.2 0.2 0.2" position="1.5 0.5 0" shadow="receive: false;" rotation="0 30 0" visible=""></a-entity>
 		<a-entity environment="shadow: true; shadowSize: 10; preset: threetowers;" ></a-entity>
+		<a-entity circle-around="radius: 6; origin: 0 0 0;">
+			<a-camera rotation="0 180 0"></a-camera>
+		</a-entity>
 	</a-scene>
+
 	<script type="text/html" id="demo">
-		<a-entity id="floor" position="0 -0.2 -4.5" geometry="primitive: plane; width: 20; height: 20;" visible="false" rotation="-90 0 0" position="0 -0.2 0" static-body></a-entity>
-		<a-box fast-sync material="color: blue;" position="0 0.4 -4.5" dynamic-body="mass:1;"></a-box>
-		<a-box fast-sync material="color: green;" position="-1.2 0.4 -4.5" dynamic-body="mass:1;"></a-box>
-		<a-box fast-sync material="color: yellow;" position="1.2 0.4 -4.5" dynamic-body="mass:1;"></a-box>
-		<a-box fast-sync material="color: crimson;" position="-0.55 1.5 -4.5" dynamic-body="mass:1;"></a-box>
-		<a-box fast-sync material="color: purple;" position="0.55 1.5 -4.5" dynamic-body="mass:1;"></a-box>
-		<a-box fast-sync material="color: orange;" position="0 2.6 -4.5" dynamic-body="mass:1;"></a-box>
-		<a-sphere position="0 0.5 -8" radius="0.5" dynamic-body="mass: 20;" id="ball"></a-sphere>
+		<a-entity id="floor" position="0 -0.2 0" geometry="primitive: plane; width: 20; height: 20;" visible="false" rotation="-90 0 0" position="0 -0.2 0" static-body></a-entity>
+		<a-box fast-sync shadow="receive: false;" material="color: blue;" position="0 0.4 0" dynamic-body="mass:1;"></a-box>
+		<a-box fast-sync shadow="receive: false;" material="color: green;" position="-1.2 0.4 0" dynamic-body="mass:1;"></a-box>
+		<a-box fast-sync shadow="receive: false;" material="color: yellow;" position="1.2 0.4 0" dynamic-body="mass:1;"></a-box>
+		<a-box fast-sync shadow="receive: false;" material="color: crimson;" position="-0.55 1.5 0" dynamic-body="mass:1;"></a-box>
+		<a-box fast-sync shadow="receive: false;" material="color: purple;" position="0.55 1.5 0" dynamic-body="mass:1;"></a-box>
+		<a-box fast-sync shadow="receive: false;" material="color: orange;" position="0 2.6 0" dynamic-body="mass:1;"></a-box>
+		<a-sphere fast-sync position="0 0.5 -8" radius="0.5" dynamic-body="mass: 20;" id="ball"></a-sphere>
 	</script>
 	<script>
 		if (document.location.search === '?stuff') {
@@ -30,7 +40,7 @@
 				var el = document.querySelector('#ball');
 				el.body.applyImpulse(
 					new CANNON.Vec3(0, 60, 400),
-					new CANNON.Vec3().copy(el.getComputedAttribute('position'))
+					new CANNON.Vec3().copy(el.getAttribute('position'))
 				);
 			}, 5000);
 		}
