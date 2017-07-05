@@ -4,7 +4,7 @@
 		<title>AFrame Demo</title>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<script src="./aframe.min.js"></script>
+		<script src="https://aframe.io/releases/0.6.0/aframe.min.js"></script>
 		<script src="./aframe-environment-component.js"></script>
 		<script src="./aframe-physics-system.min.js"></script>
 		<script src="./fast-sync-component.js"></script>
@@ -17,7 +17,7 @@
 			<a-asset-item id="student-mtl" src="https://ada.is/vr-ada/assets/student/student.mtl"></a-asset-item>
 		</a-assets>
 		<a-entity id="student-template" obj-model="obj: #student-obj; mtl: #student-mtl" visible="false" student-model scale="0.2 0.2 0.2" position="1.5 0.5 0" shadow="receive: false;" rotation="0 30 0" visible=""></a-entity>
-		<a-entity environment="shadow: true; shadowSize: 10; preset: threetowers;" ></a-entity>
+		 <a-entity environment="shadow: true; shadowSize: 10; preset: threetowers;" ></a-entity> 
 		<a-entity circle-around="radius: 6; origin: 0 0 0;">
 			<a-camera rotation="0 180 0"></a-camera>
 		</a-entity>
@@ -25,8 +25,8 @@
 
 
 	<script type="text/html" id="demo1">
-		<a-box position="0 4 0" fast-sync>
-			<a-animation from="0 0 0" to="0 90 0" repeat="indefinite" easing="linear" shadow="receive: false;" color="yellow"></a-animation>
+		<a-box id="spinner" position="0 4 0" fast-sync>
+			<a-animation from="0 0 0" to="0 90 0" repeat="indefinite" easing="linear" shadow="receive: false;" color="yellow"></a-animation> 
 		</a-box>
 	</script>
 
@@ -53,6 +53,10 @@
 			}, 5000);
 		} else {
 			document.querySelector('a-scene').insertAdjacentHTML('beforeend', window.demo1.textContent);
+			setTimeout(function() {
+				var el = document.querySelector('#spinner');
+				el.parentNode.removeChild(el);
+			}, 8000);
 		}
 	</script>
 	</body>

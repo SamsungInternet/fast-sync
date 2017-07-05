@@ -64,6 +64,10 @@ function getNewWS(url, callbacks) {
 					callbacks.createForeignEl(ws, data[1], data[2]);
 					return;
 				}
+				if (data[0] === 'REMOVE_REMOTE_EL') {
+					callbacks.removeForeignEl(ws, data[1], data[2]);
+					return;
+				}
 			} else {
 				var temp = new Uint32Array(e.data);
 				callbacks.messageCallback(ws, temp);
@@ -110,17 +114,8 @@ AFRAME.registerSystem('fast-sync-controller', {
 		this._wsPromise = getNewWS(this.data.url, {
 			messageCallback: this.onbinary.bind(this),
 			createForeignEl: this.onupdate.bind(this),
-			userJoinCallback: function (ws, id) {
-
-				console.log('User joined', ws.id + ':', id);
-				// Update newly joined user
-				Array.from(this.objects.values())
-				.forEach(function (el) {
-					el.components['fast-sync'].getSyncTemplate().then(function(template) {
-						ws.send(JSON.stringify(['UPDATE_REMOTE_EL', id, template]));
-					});
-				});
-			}.bind(this),
+			removeForeignEl: this.onremove.bind(this),
+			userJoinCallback: this.onuserjoin.bind(this),
 			userLeaveCallback: function (id) {
 				console.log(id);
 			}
@@ -135,7 +130,7 @@ AFRAME.registerSystem('fast-sync-controller', {
 		if (!this._ws) return;
 		var toSerial = Array.from(this.objects.values())
 		.filter(function (el) {
-			return el.components['fast-sync'].id !== undefined;
+			return el.components['fast-sync'].syncId !== undefined;
 		});
 		var count = toSerial.length;
 		if (!count) return;
@@ -148,7 +143,7 @@ AFRAME.registerSystem('fast-sync-controller', {
 			var data = el.components['fast-sync'].getSyncData();
 			var pos = data.position;
 			var rot = data.rotation;
-			bindata[0 + index] = el.components['fast-sync'].id;
+			bindata[0 + index] = el.components['fast-sync'].syncId;
 			bindata[1 + index] = floatToUint32(rot.x);
 			bindata[2 + index] = floatToUint32(rot.y);
 			bindata[3 + index] = floatToUint32(rot.z);
@@ -159,6 +154,16 @@ AFRAME.registerSystem('fast-sync-controller', {
 		});
 
 		this._ws.send(bindata);
+	},
+	onuserjoin: function (ws, id) {
+		console.log('User joined', ws.id + ':', id);
+		// Update newly joined user
+		Array.from(this.objects.values())
+		.forEach(function (el) {
+			el.components['fast-sync'].getSyncTemplate().then(function(template) {
+				ws.send(JSON.stringify(['UPDATE_REMOTE_EL', id, template]));
+			});
+		});
 	},
 	onbinary: function (ws, message) {
 		var index = 0;
@@ -208,10 +213,14 @@ AFRAME.registerSystem('fast-sync-controller', {
 		if (details.html) {
 			this.sceneEl.insertAdjacentHTML('beforeend', details.html);
 			var el = this.sceneEl.lastElementChild;
-			el.setAttribute('fast-sync-listener', 'original: ' + id + ' ; to: ' + details.syncId + ';');
+			el.setAttribute('fast-sync-listener', 'original-creator: ' + id + ' ; to: ' + details.syncId + ';');
 			el.removeAttribute('fast-sync');
 			this.foreignObjects.set(id + ',' + details.syncId, el);
 		}
+	},
+	onremove: function (ws, id, details) {
+		var el = this.foreignObjects.get(id + ',' + details.syncId);
+		el.parentNode.remove(el);
 	},
 	register: function (el) {
 		var id;
@@ -232,6 +241,14 @@ AFRAME.registerSystem('fast-sync-controller', {
 			el.components['fast-sync'].getSyncTemplate().then(function (template) {
 				ws.send(JSON.stringify(['UPDATE_REMOTE_EL', template]));
 			});
+		});
+	},
+	removeEl: function (syncId) {
+		this.objects.delete(syncId);
+		this.getWs(function (ws) {
+			ws.send(JSON.stringify(['REMOVE_REMOTE_EL', {
+				syncId: syncId
+			}]));
 		});
 	},
 	getWs: function getWs(callback) {
@@ -273,8 +290,9 @@ AFRAME.registerComponent('fast-sync', {
 	init: function () {
 		this._registerPromise = this.el.sceneEl.systems['fast-sync-controller']
 		.register(this.el)
-		.then(function (id) {
-			this.id = id;	
+		.then(function (syncId) {
+			this.syncId = syncId;
+			return syncId;
 		}.bind(this));
 	},
 	update: function () {
@@ -306,9 +324,8 @@ AFRAME.registerComponent('fast-sync', {
 		}
 	}()),
 	getSyncTemplate: function() {
-		return this._registerPromise.then(function () {
+		return this._registerPromise.then(function (syncId) {
 			var config = this.data;
-			var syncId = this.id;
 			var components = this.data.components.split(',').map(function (s) {
 				return s.toLowerCase().trim();
 			});
@@ -341,6 +358,9 @@ AFRAME.registerComponent('fast-sync', {
 		}.bind(this));
 	},
 	remove: function () {
-		
+		this._registerPromise.then(function (syncId) {
+			var controller = this.el.sceneEl.systems['fast-sync-controller'];
+			controller.removeEl.call(controller, syncId);
+		}.bind(this));
 	}
 })
