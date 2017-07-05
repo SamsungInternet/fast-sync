@@ -339,6 +339,7 @@ AFRAME.registerComponent('fast-sync-listener', {
 		}
 	},
 	steal: function (options) {
+		options = options || {};
 		if (this.stealPromise) return this.stealPromise;
 		this.el.sceneEl.systems['fast-sync-controller'].stealEl(this.data, options || {});
 		this.stealPromise = new Promise(function (resolve) {
@@ -348,7 +349,7 @@ AFRAME.registerComponent('fast-sync-listener', {
 			this.el.removeAttribute('fast-sync-listener');
 			this.el.setAttribute('fast-sync', this.el._fastSyncConfig);
 			this.el._fastSyncWas = this.data;
-			options.transfer.forEach(function (attr) {
+			if (options.transfer) options.transfer.forEach(function (attr) {
 				this.el.setAttribute(attr, this.el.transferables[attr]);
 			}.bind(this));
 		}.bind(this));
