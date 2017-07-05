@@ -69,6 +69,11 @@ wss.on('connection', function connection(ws) {
 				console.log('user with id', id, 'joined room', data[1]);
 
 				ws._room = data[1];
+				const room = rooms[ws._room] || new Room();
+				rooms[ws._room] = room;
+				if (!room.hasWs()) {
+					room.addWs(ws);
+				}
 
 				const roomies = [];
 				wss.clients.forEach(function (ws) {
@@ -95,7 +100,6 @@ wss.on('connection', function connection(ws) {
 				]);
 				wss.clients
 				.forEach(function (otherWs) {
-					if (!otherWs.id === data[1]) return;
 					otherWs.send(message);
 				});
 				return;
@@ -109,7 +113,7 @@ wss.on('connection', function connection(ws) {
 					data[1]
 				]);
 				wss.clients.forEach(function (otherWs) {
-					if(otherWs !== ws) otherWs.send(message);
+					otherWs.send(message);
 				});
 				return;
 			}
@@ -117,8 +121,7 @@ wss.on('connection', function connection(ws) {
 
 			if (!ws._room) return;
 
-			const room = rooms[ws._room] || new Room();
-			rooms[ws._room] = room;
+			const room = rooms[ws._room];
 			
 			// if the size of the data from this ws grows then update it
 			if (
@@ -126,9 +129,6 @@ wss.on('connection', function connection(ws) {
 			) {
 				ws._size = message.byteLength;
 				room.updateSize();
-			}
-			if (!room.hasWs()) {
-				room.addWs(ws);
 			}
 
 			room.set(ws, Buffer.from(message));

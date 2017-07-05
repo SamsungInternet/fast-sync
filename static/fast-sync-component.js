@@ -61,11 +61,17 @@ function getNewWS(url, callbacks) {
 					return;
 				}
 				if (data[0] === 'UPDATE_REMOTE_EL') {
+					if (data[1] === ws.id) return;
 					callbacks.createForeignEl(ws, data[1], data[2]);
 					return;
 				}
 				if (data[0] === 'REMOVE_REMOTE_EL') {
+					if (data[1] === ws.id) return;
 					callbacks.removeForeignEl(ws, data[1], data[2]);
+					return;
+				}
+				if (data[0] === 'STEAL_EL') {
+					callbacks.stealEl(ws, data[1], data[2]);
 					return;
 				}
 			} else {
@@ -78,6 +84,7 @@ function getNewWS(url, callbacks) {
 
 		ws.addEventListener('open', function firstOpen() {
 
+			/* eslint-disable no-console */
 			console.log('Connected to the server...');
 
 			interval = setInterval(function ping() {
@@ -90,6 +97,7 @@ function getNewWS(url, callbacks) {
 			}, 3000);
 
 			ws.removeEventListener('open', firstOpen);
+			/* eslint-enable no-console */
 		});
 
 		function terminate() {
@@ -116,8 +124,11 @@ AFRAME.registerSystem('fast-sync-controller', {
 			createForeignEl: this.onupdate.bind(this),
 			removeForeignEl: this.onremove.bind(this),
 			userJoinCallback: this.onuserjoin.bind(this),
+			stealEl: this.onstealel.bind(this),
 			userLeaveCallback: function (id) {
+				/* eslint-disable no-console */
 				console.log(id);
+				/* eslint-enable no-console */
 			}
 		});
 		this.getWs(function (ws) {
@@ -156,11 +167,13 @@ AFRAME.registerSystem('fast-sync-controller', {
 		this._ws.send(bindata);
 	},
 	onuserjoin: function (ws, id) {
-		console.log('User joined', ws.id + ':', id);
+		/* eslint-disable */
+		console.log('User joined: ' + ws.id, id, location.pathname);
+		/*eslint-enable */
 		// Update newly joined user
 		Array.from(this.objects.values())
 		.forEach(function (el) {
-			el.components['fast-sync'].getSyncTemplate().then(function(template) {
+			if (ws.id !== id) el.components['fast-sync'].getSyncTemplate(ws.id).then(function(template) {
 				ws.send(JSON.stringify(['UPDATE_REMOTE_EL', id, template]));
 			});
 		});
@@ -210,17 +223,60 @@ AFRAME.registerSystem('fast-sync-controller', {
 	},
 	onupdate: function (ws, id, details) {
 		if (id === ws.id) return;
+		var fOId = id + ',' + details.syncId;
+		var el;
+		if (details.was) {
+			var el = this.foreignObjects.get(details.was);
+			if (!el) return;
+			this.foreignObjects.delete(details.was);
+			this.foreignObjects.set(fOId, el);
+			Element.prototype.setAttribute.call(el, 'fast-sync-listener', 'original-creator: ' + id + ' ; sync-id: ' + details.syncId + ';');			
+		}
 		if (details.html) {
+			var oldEl = this.foreignObjects.get(fOId);
+			if (oldEl) oldEl.parentNode.removeChild(oldEl);
+
 			this.sceneEl.insertAdjacentHTML('beforeend', details.html);
 			var el = this.sceneEl.lastElementChild;
-			el.setAttribute('fast-sync-listener', 'original-creator: ' + id + ' ; to: ' + details.syncId + ';');
 			el.removeAttribute('fast-sync');
-			this.foreignObjects.set(id + ',' + details.syncId, el);
+			this.foreignObjects.set(fOId, el);
 		}
+
+		el._fastSyncConfig = details.config;
+		el.transferables = details.transferables;
 	},
 	onremove: function (ws, id, details) {
 		var el = this.foreignObjects.get(id + ',' + details.syncId);
 		el.parentNode.remove(el);
+	},
+	onstealel: function (ws, id, o) {
+		var details = o.idData;
+		var options = o.options;
+		var fOId = details.originalCreator + ',' + details.syncId;
+		if (id === ws.id) {
+			this.foreignObjects.get(fOId).components['fast-sync-listener']._stealComplete();
+			this.foreignObjects.delete(fOId);
+		} else {
+			if (details.originalCreator === ws.id) {
+				var el = this.objects.get(details.syncId);
+
+				// My item has been stolen, give it up
+				el.components['fast-sync'].teardown();
+
+				if (options.transfer) {
+					options.transfer.forEach(function (attr) {
+						el.removeAttribute(attr);
+					});
+				}
+
+				// Assign it as a foreign object so it can be found updated later
+				this.foreignObjects.set(fOId, el);
+
+				el.emit('stolen');
+			} else {
+				// Someone's object has been stolen, transfer ownership from old user to new user
+			}
+		}
 	},
 	register: function (el) {
 		var id;
@@ -238,9 +294,17 @@ AFRAME.registerSystem('fast-sync-controller', {
 	},
 	updateEl: function (el) {
 		this.getWs(function (ws) {
-			el.components['fast-sync'].getSyncTemplate().then(function (template) {
+			el.components['fast-sync'].getSyncTemplate(ws.id).then(function (template) {
 				ws.send(JSON.stringify(['UPDATE_REMOTE_EL', template]));
 			});
+		});
+	},
+	stealEl: function (data, options) {
+		this.getWs(function (ws) {
+			ws.send(JSON.stringify(['STEAL_EL', {
+				idData: data,
+				options: options
+			}]));
 		});
 	},
 	removeEl: function (syncId) {
@@ -251,6 +315,9 @@ AFRAME.registerSystem('fast-sync-controller', {
 			}]));
 		});
 	},
+	teardownEl: function (syncId) {
+		this.objects.delete(syncId);
+	},
 	getWs: function getWs(callback) {
 		this._wsPromise = this._wsPromise.then(function (ws) {
 			var maybePromise = callback.bind(this)(ws);
@@ -260,18 +327,40 @@ AFRAME.registerSystem('fast-sync-controller', {
 		}.bind(this));
 		return this._wsPromise;
 	}
-})
+});
+
+AFRAME.registerComponent('fast-sync-listener', {
+	schema: {
+		originalCreator: {
+			type: 'number'
+		},
+		syncId: {
+			type: 'number'
+		}
+	},
+	steal: function (options) {
+		if (this.stealPromise) return this.stealPromise;
+		this.el.sceneEl.systems['fast-sync-controller'].stealEl(this.data, options || {});
+		this.stealPromise = new Promise(function (resolve) {
+			this.stealResolve = resolve;
+		}.bind(this))
+		.then(function () {
+			this.el.removeAttribute('fast-sync-listener');
+			this.el.setAttribute('fast-sync', this.el._fastSyncConfig);
+			options.transfer.forEach(function (attr) {
+				this.el.setAttribute(attr, this.el.transferables[attr]);
+			}.bind(this));
+			this.el.setAttribute('fast-sync', 'was', this.data.originalCreator + ',' + this.data.syncId);
+		}.bind(this));
+		return this.stealPromise;
+	},
+	_stealComplete: function () {
+		if (this.stealResolve) this.stealResolve();
+	}
+});
 
 AFRAME.registerComponent('fast-sync', {
 	schema: {
-
-		'world-position': {
-			default: false
-		},
-		
-		'world-rotation': {
-			default: false
-		},
 
 		// clone an element by selector on the remote
 		clone: {
@@ -284,7 +373,15 @@ AFRAME.registerComponent('fast-sync', {
 		},
 
 		components: {
-			default: 'material, color, shadow'
+			default: ''
+		},
+
+		was: {
+			default: ''
+		},
+
+		transferables: {
+			default: ''
 		}
 	},
 	init: function () {
@@ -296,8 +393,7 @@ AFRAME.registerComponent('fast-sync', {
 		}.bind(this));
 	},
 	update: function () {
-		var controller = this.el.sceneEl.systems['fast-sync-controller'];
-		controller.updateEl.call(controller, this.el);
+		this.el.sceneEl.systems['fast-sync-controller'].updateEl(this.el);
 	},
 	getSyncData: (function () {
 		var converter;
@@ -323,17 +419,35 @@ AFRAME.registerComponent('fast-sync', {
 			}
 		}
 	}()),
-	getSyncTemplate: function() {
+	getSyncTemplate: function(id) {
 		return this._registerPromise.then(function (syncId) {
 			var config = this.data;
-			var components = this.data.components.split(',').map(function (s) {
+			var components = ['material', 'color', 'shadow', 'id', 'class']
+			.concat(this.data.components.split(',').map(function (s) {
 				return s.toLowerCase().trim();
-			});
+			}));
+			
+			var transferables = {};
+			if (this.data.transferables) this.data.transferables.split(',').forEach(function (s) {
+				var attr = s.toLowerCase().trim();
+				transferables[attr] = Element.prototype.getAttribute.call(this.el, attr);
+			}.bind(this));
+
+			if (config.was) {
+				return {
+					was: config.was,
+					syncId: syncId,
+					config: this.data,
+					transferables: transferables
+				};
+			}
 	
 			if (config.clone) {
 				return {
-					clone: config,
-					syncId: syncId
+					clone: config.clone,
+					syncId: syncId,
+					config: this.data,
+					transferables: transferables
 				};
 			}
 	
@@ -350,17 +464,25 @@ AFRAME.registerComponent('fast-sync', {
 				if (components.includes(a.name.toLowerCase())) return;
 				newEl.removeAttribute(a.name);
 			});
+
+			Element.prototype.setAttribute.call(newEl, 'fast-sync-listener', 'original-creator: ' + id + ' ; sync-id: ' + syncId + ';');
 	
 			return {
 				html: newEl.outerHTML,
-				syncId: syncId
+				syncId: syncId,
+				config: this.data,
+				transferables: transferables
 			};
 		}.bind(this));
 	},
 	remove: function () {
 		this._registerPromise.then(function (syncId) {
-			var controller = this.el.sceneEl.systems['fast-sync-controller'];
-			controller.removeEl.call(controller, syncId);
+			this.el.sceneEl.systems['fast-sync-controller'].removeEl(syncId);
+		}.bind(this));
+	},
+	teardown: function () {
+		this._registerPromise.then(function (syncId) {
+			this.el.sceneEl.systems['fast-sync-controller'].teardownEl(syncId);
 		}.bind(this));
 	}
-})
+});

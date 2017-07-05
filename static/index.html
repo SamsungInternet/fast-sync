@@ -12,12 +12,7 @@
 	</head>
 	<body>
 	<a-scene physics="debug: true;">
-		<a-assets>
-			<a-asset-item id="student-obj" src="https://ada.is/vr-ada/assets/student/student.obj"></a-asset-item>
-			<a-asset-item id="student-mtl" src="https://ada.is/vr-ada/assets/student/student.mtl"></a-asset-item>
-		</a-assets>
-		<a-entity id="student-template" obj-model="obj: #student-obj; mtl: #student-mtl" visible="false" student-model scale="0.2 0.2 0.2" position="1.5 0.5 0" shadow="receive: false;" rotation="0 30 0" visible=""></a-entity>
-		 <a-entity environment="shadow: true; shadowSize: 10; preset: threetowers;" ></a-entity> 
+		<a-entity environment="shadow: true; shadowSize: 10; preset: threetowers;" ></a-entity> 
 		<a-entity circle-around="radius: 6; origin: 0 0 0;">
 			<a-camera rotation="0 180 0"></a-camera>
 		</a-entity>
@@ -25,8 +20,8 @@
 
 
 	<script type="text/html" id="demo1">
-		<a-box id="spinner" position="0 4 0" fast-sync>
-			<a-animation from="0 0 0" to="0 90 0" repeat="indefinite" easing="linear" shadow="receive: false;" color="yellow"></a-animation> 
+		<a-box id="spinner" position="0 4 0" shadow="receive: false;" fast-sync>
+			<a-animation from="0 0 0" to="0 90 0" repeat="indefinite" easing="linear" end="stolen"></a-animation> 
 		</a-box>
 	</script>
 
@@ -44,6 +39,8 @@
 	<script>
 		if (document.location.search === '?stuff') {
 			document.querySelector('a-scene').insertAdjacentHTML('beforeend', window.demo2.textContent);
+
+			// Throw ball to demo physics
 			setTimeout(function() {
 				var el = document.querySelector('#ball');
 				el.body.applyImpulse(
@@ -51,12 +48,17 @@
 					new CANNON.Vec3().copy(el.getAttribute('position'))
 				);
 			}, 5000);
+
+			// steal rotating cube, make it rotate in the opposite direction
+			setTimeout(function() {
+				var spinner = document.querySelector('#spinner');
+				spinner.components['fast-sync-listener'].steal().then(function () {
+					console.log('Steal complete');
+					spinner.insertAdjacentHTML('beforeend', '<a-animation from="0 0 0" to="0 -90 0" repeat="indefinite" easing="linear"></a-animation>')
+				});
+			}, 7000);
 		} else {
 			document.querySelector('a-scene').insertAdjacentHTML('beforeend', window.demo1.textContent);
-			setTimeout(function() {
-				var el = document.querySelector('#spinner');
-				el.parentNode.removeChild(el);
-			}, 8000);
 		}
 	</script>
 	</body>
