@@ -129,7 +129,7 @@ AFRAME.registerSystem('fast-sync-controller', {
 			ws.send(JSON.stringify(['HANDSHAKE', this.data.room]));
 			this._ws = ws;
 		}.bind(this));
-		this.tick = AFRAME.utils.throttleTick(this.throttledTick, 1000/15, this);
+		this.tick = AFRAME.utils.throttleTick(this.throttledTick, 1000/30, this);
 	},
 	throttledTick: function () {
 		if (!this._ws) return;
@@ -164,6 +164,10 @@ AFRAME.registerSystem('fast-sync-controller', {
 		var index = 0;
 		while (index < message.length) {
 			var id = message[index];
+
+			// Skip long sections of zeros
+			if (id === 0) while (id === 0) id = message[++index];
+
 			var count = message[index + 1];
 
 			// skip self
@@ -263,7 +267,7 @@ AFRAME.registerComponent('fast-sync', {
 		},
 
 		components: {
-			default: 'material, color'
+			default: 'material, color, shadow'
 		}
 	},
 	init: function () {

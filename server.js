@@ -3,6 +3,7 @@
 */
 
 /* eslint-env es6 */
+/* eslint no-console: 0 */
 'use strict';
 
 const server = require('http').createServer();
@@ -11,7 +12,8 @@ const wss = new WebSocketServer({ server: server });
 const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
-const SYNC_INTERVAL = 1000/15;
+const SYNC_INTERVAL = 1000/30;
+const rooms = {};
 
 // 0th entry is always filled
 let ids = [true];
@@ -35,7 +37,6 @@ wss.on('connection', function connection(ws) {
 	ws.id = id;
 	ws._size = 0;
 
-
 	ws.on('close', function close() {
 		const roomies = [];
 		wss.clients.forEach(function (ws) {
@@ -53,11 +54,6 @@ wss.on('connection', function connection(ws) {
 
 		// Rebroadcast any string messages
 		if (typeof message === 'string') {
-
-			// The binary data is now invalid so set the _size to zero
-			if (ws._size) {
-				ws._size = 0;
-			}
 
 			if (message === '__ping__') {
 				return ws.send('__pong__', wsHandleErr);
@@ -118,8 +114,24 @@ wss.on('connection', function connection(ws) {
 				return;
 			}
 		} else {
-			ws._buffer = Buffer.from(message);
-			ws._size = message.byteLength;
+
+			if (!ws._room) return;
+
+			const room = rooms[ws._room] || new Room();
+			rooms[ws._room] = room;
+			
+			// if the size of the data from this ws grows then update it
+			if (
+				ws._size < message.byteLength
+			) {
+				ws._size = message.byteLength;
+				room.updateSize();
+			}
+			if (!room.hasWs()) {
+				room.addWs(ws);
+			}
+
+			room.set(ws, Buffer.from(message));
 		}
 	});
 
@@ -128,6 +140,53 @@ wss.on('connection', function connection(ws) {
 
 	ws.send(JSON.stringify(['HANDSHAKE', id]), wsHandleErr);
 });
+
+/*
+* Used to maintain a Buffer for the room which grows as needed
+*/
+class Room {
+	constructor() {
+		this.webSockets = [];
+		this._buffer = Buffer.alloc(1);
+		this.clean();
+	}
+
+	hasWs (ws) {
+		return this.webSockets.indexOf(ws) !== -1;
+	}
+
+	addWs (ws) {
+		if (this.webSockets.indexOf(ws) === -1) {
+			this.webSockets.push(ws);
+			this.updateSize();
+		}
+	}
+
+	updateSize() {
+		this._size = this.webSockets.reduce((a,b) => a + b._size, 0);
+		this._buffer = Buffer.alloc(this._size);
+		console.log('Buffer Update', this._size);
+		this.clean();
+	}
+
+	clean() {
+		this._buffer.fill(0);
+		this._clean = true;
+		this._start = Infinity;
+	}
+
+	set(ws, data) {
+		let offset = 0;
+		for (let i=0; i<this.webSockets.length; i++) {
+			const testWs = this.webSockets[i];
+			if (ws === testWs) break;
+			offset += testWs._size;
+		}
+		if (this._start > offset) this._start = offset;
+		this._clean = false;;
+		data.copy(this._buffer, offset);
+	}
+}
 
 server.on('request', app);
 server.listen(port, function () {
@@ -148,33 +207,14 @@ setInterval(function ping() {
 }, 5000);
 
 setInterval(function () {
-	const rooms = {};
-	wss.clients.forEach(function (ws) {
-
-		// ignore rooms which don't have binary data
-		var room = rooms[ws._room] || {
-			buffer: [],
-			clients: [],
-			size: 0
-		};
-		rooms[ws._room] = room;
-		room.clients.push(ws);
-		
-		if (ws._size) {
-			room.buffer.push(ws._buffer);
-			room.size += ws._size;
-		}
-
-		ws._buffer = undefined;
-		ws._size = 0;
-	});
 	const roomKeys = Object.keys(rooms);
 	for (const roomKey of roomKeys) {
 		const room = rooms[roomKey];
-		if (!room.size) continue;
-		const data = Buffer.concat(room.buffer, room.size);
-		for (const ws of room.clients) {
-			ws.send(data, wsHandleErr);
+		if (room._clean) continue;
+		for (const ws of room.webSockets) {
+			ws.send(room._buffer, function () {
+				room.clean();
+			});
 		};
 	}
 }, SYNC_INTERVAL);

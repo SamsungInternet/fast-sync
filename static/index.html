@@ -23,7 +23,14 @@
 		</a-entity>
 	</a-scene>
 
-	<script type="text/html" id="demo">
+
+	<script type="text/html" id="demo1">
+		<a-box position="0 4 0" fast-sync>
+			<a-animation from="0 0 0" to="0 90 0" repeat="indefinite" easing="linear" shadow="receive: false;" color="yellow"></a-animation>
+		</a-box>
+	</script>
+
+	<script type="text/html" id="demo2">
 		<a-entity id="floor" position="0 -0.2 0" geometry="primitive: plane; width: 20; height: 20;" visible="false" rotation="-90 0 0" position="0 -0.2 0" static-body></a-entity>
 		<a-box fast-sync shadow="receive: false;" material="color: blue;" position="0 0.4 0" dynamic-body="mass:1;"></a-box>
 		<a-box fast-sync shadow="receive: false;" material="color: green;" position="-1.2 0.4 0" dynamic-body="mass:1;"></a-box>
@@ -33,9 +40,10 @@
 		<a-box fast-sync shadow="receive: false;" material="color: orange;" position="0 2.6 0" dynamic-body="mass:1;"></a-box>
 		<a-sphere fast-sync position="0 0.5 -8" radius="0.5" dynamic-body="mass: 20;" id="ball"></a-sphere>
 	</script>
+
 	<script>
 		if (document.location.search === '?stuff') {
-			document.querySelector('a-scene').insertAdjacentHTML('beforeend', window.demo.textContent);
+			document.querySelector('a-scene').insertAdjacentHTML('beforeend', window.demo2.textContent);
 			setTimeout(function() {
 				var el = document.querySelector('#ball');
 				el.body.applyImpulse(
@@ -43,6 +51,8 @@
 					new CANNON.Vec3().copy(el.getAttribute('position'))
 				);
 			}, 5000);
+		} else {
+			document.querySelector('a-scene').insertAdjacentHTML('beforeend', window.demo1.textContent);
 		}
 	</script>
 	</body>
