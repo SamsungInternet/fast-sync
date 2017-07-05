@@ -226,22 +226,21 @@ AFRAME.registerSystem('fast-sync-controller', {
 		var fOId = id + ',' + details.syncId;
 		var el;
 		if (details.was) {
-			var el = this.foreignObjects.get(details.was);
-			if (!el) return;
-			this.foreignObjects.delete(details.was);
+			var wasFOId = details.was.originalCreator + ',' + details.was.syncId;
+			var el = this.foreignObjects.get(wasFOId);
+			if (!el) throw Error('No element with that Id in Foreign Objects', wasFOId);
+			this.foreignObjects.delete(wasFOId);
 			this.foreignObjects.set(fOId, el);
-			Element.prototype.setAttribute.call(el, 'fast-sync-listener', 'original-creator: ' + id + ' ; sync-id: ' + details.syncId + ';');			
 		}
 		if (details.html) {
 			var oldEl = this.foreignObjects.get(fOId);
 			if (oldEl) oldEl.parentNode.removeChild(oldEl);
-
 			this.sceneEl.insertAdjacentHTML('beforeend', details.html);
 			var el = this.sceneEl.lastElementChild;
-			el.removeAttribute('fast-sync');
 			this.foreignObjects.set(fOId, el);
 		}
-
+		
+		Element.prototype.setAttribute.call(el, 'fast-sync-listener', 'original-creator: ' + id + ' ; sync-id: ' + details.syncId + ';');			
 		el._fastSyncConfig = details.config;
 		el.transferables = details.transferables;
 	},
@@ -262,6 +261,7 @@ AFRAME.registerSystem('fast-sync-controller', {
 
 				// My item has been stolen, give it up
 				el.components['fast-sync'].teardown();
+				el.removeAttribute('fast-sync');
 
 				if (options.transfer) {
 					options.transfer.forEach(function (attr) {
@@ -347,10 +347,10 @@ AFRAME.registerComponent('fast-sync-listener', {
 		.then(function () {
 			this.el.removeAttribute('fast-sync-listener');
 			this.el.setAttribute('fast-sync', this.el._fastSyncConfig);
+			this.el._fastSyncWas = this.data;
 			options.transfer.forEach(function (attr) {
 				this.el.setAttribute(attr, this.el.transferables[attr]);
 			}.bind(this));
-			this.el.setAttribute('fast-sync', 'was', this.data.originalCreator + ',' + this.data.syncId);
 		}.bind(this));
 		return this.stealPromise;
 	},
@@ -373,10 +373,6 @@ AFRAME.registerComponent('fast-sync', {
 		},
 
 		components: {
-			default: ''
-		},
-
-		was: {
 			default: ''
 		},
 
@@ -419,7 +415,7 @@ AFRAME.registerComponent('fast-sync', {
 			}
 		}
 	}()),
-	getSyncTemplate: function(id) {
+	getSyncTemplate: function() {
 		return this._registerPromise.then(function (syncId) {
 			var config = this.data;
 			var components = ['material', 'color', 'shadow', 'id', 'class']
@@ -433,9 +429,11 @@ AFRAME.registerComponent('fast-sync', {
 				transferables[attr] = Element.prototype.getAttribute.call(this.el, attr);
 			}.bind(this));
 
-			if (config.was) {
+			if (this.el._fastSyncWas) {
+				var was = this.el._fastSyncWas;
+				delete this.el._fastSyncWas;
 				return {
-					was: config.was,
+					was: was,
 					syncId: syncId,
 					config: this.data,
 					transferables: transferables
@@ -464,8 +462,6 @@ AFRAME.registerComponent('fast-sync', {
 				if (components.includes(a.name.toLowerCase())) return;
 				newEl.removeAttribute(a.name);
 			});
-
-			Element.prototype.setAttribute.call(newEl, 'fast-sync-listener', 'original-creator: ' + id + ' ; sync-id: ' + syncId + ';');
 	
 			return {
 				html: newEl.outerHTML,
@@ -476,11 +472,13 @@ AFRAME.registerComponent('fast-sync', {
 		}.bind(this));
 	},
 	remove: function () {
+		if (this._tornDown === true) return;
 		this._registerPromise.then(function (syncId) {
 			this.el.sceneEl.systems['fast-sync-controller'].removeEl(syncId);
 		}.bind(this));
 	},
 	teardown: function () {
+		this._tornDown = true;
 		this._registerPromise.then(function (syncId) {
 			this.el.sceneEl.systems['fast-sync-controller'].teardownEl(syncId);
 		}.bind(this));
