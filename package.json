@@ -4,6 +4,7 @@
   "description": "A-Frame component for Syncing over Web Sockets",
   "main": "server.js",
   "dependencies": {
+    "eslint": "^4.1.1",
     "express": "^4.15.3",
     "uws": "^8.14.0"
   },

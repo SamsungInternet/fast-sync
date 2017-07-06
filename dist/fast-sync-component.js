@@ -113,7 +113,7 @@ AFRAME.registerSystem('fast-sync-controller', {
 			default: 'demo'
 		},
 		url: {
-			default: (isLocal ? 'ws://' : 'wss://') + location.host
+			default: (isLocal ? 'ws://' : 'wss://') + location.host + '/fast-sync/'
 		}
 	},
 	init: function () {
