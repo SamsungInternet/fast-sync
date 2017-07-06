@@ -109,6 +109,8 @@ AFRAME.registerComponent('student-model', {
 			this.data.color2 = 'hsl(' + Math.random() * 360 + ', 100%, 80%)';
 		}
 		if (this.hasLoaded) {
+			this.el.object3D.children[0].rotation.y = Math.PI;
+			this.el.object3D.children[0].position.y = -2;
 			var oldMat = this.el.object3D.children[0].children[0].material;
 			this.el.object3D.children[0].children[0].material = new THREE.MeshBasicMaterial();
 			this.el.object3D.children[0].children[0].material.color = new THREE.Color(this.data.color1);
@@ -130,6 +132,7 @@ AFRAME.registerComponent('clone', {
 	},
 
 	update: function () {
+		if (!this.data) throw Error('No clone failed, selector returned null');
 		if (!this.data.getObject3D('mesh')) {
 			this.data.addEventListener('model-loaded', this.updateFn);
 			return;

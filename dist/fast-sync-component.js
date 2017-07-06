@@ -272,7 +272,7 @@ AFRAME.registerSystem('fast-sync-controller', {
 			var el = this.sceneEl.lastElementChild;
 			this.foreignObjects.set(fOId, el);
 		}
-		
+
 		Element.prototype.setAttribute.call(el, 'fast-sync-listener', 'original-creator: ' + id + ' ; sync-id: ' + details.syncId + ';');			
 		el._fastSyncConfig = details.config;
 		el.transferables = details.transferables;
@@ -396,11 +396,6 @@ AFRAME.registerComponent('fast-sync-listener', {
 AFRAME.registerComponent('fast-sync', {
 	schema: {
 
-		// clone an element by selector on the remote
-		clone: {
-			default: ''
-		},
-
 		// Instead of copying self, copy another element
 		copy: {
 			type: 'selector'
@@ -412,6 +407,10 @@ AFRAME.registerComponent('fast-sync', {
 
 		transferables: {
 			default: ''
+		},
+		
+		world: {
+			default: false
 		}
 	},
 	init: function () {
@@ -428,6 +427,18 @@ AFRAME.registerComponent('fast-sync', {
 	getSyncData: (function () {
 		var converter;
 		return function () {
+
+			if (this.data.world) {
+				var worldRot = this.el.object3D.getWorldRotation();
+				worldRot.x *= radToDeg;
+				worldRot.y *= radToDeg;
+				worldRot.z *= radToDeg;
+				return {
+					position: this.el.object3D.getWorldPosition(),
+					rotation: worldRot
+				}
+			}
+
 			var el = this.el;
 			var pos = el.components.position.getData();
 			var rot;
@@ -451,8 +462,12 @@ AFRAME.registerComponent('fast-sync', {
 	}()),
 	getSyncTemplate: function() {
 		return this._registerPromise.then(function (syncId) {
-			var config = this.data;
-			var components = ['material', 'color', 'shadow', 'id', 'class']
+			var config = {
+				components: this.data.components,
+				transferables: this.data.transferables,
+				world: this.data.world	
+			};
+			var components = ['material', 'color', 'shadow', 'id', 'class', 'geometry', 'scale']
 			.concat(this.data.components.split(',').map(function (s) {
 				return s.toLowerCase().trim();
 			}));
@@ -469,26 +484,16 @@ AFRAME.registerComponent('fast-sync', {
 				return {
 					was: was,
 					syncId: syncId,
-					config: this.data,
-					transferables: transferables
-				};
-			}
-	
-			if (config.clone) {
-				return {
-					clone: config.clone,
-					syncId: syncId,
-					config: this.data,
+					config: config,
 					transferables: transferables
 				};
 			}
 	
 			var newEl;
 	
-			if (config.copy !== null) {
-				newEl = config.copy.cloneNode();
-			}
-			if (config.copy === null) {
+			if (this.data.copy !== null) {
+				newEl = this.data.copy.cloneNode();
+			} else {
 				newEl = this.el.cloneNode();
 			}
 	
@@ -500,7 +505,7 @@ AFRAME.registerComponent('fast-sync', {
 			return {
 				html: newEl.outerHTML,
 				syncId: syncId,
-				config: this.data,
+				config: config,
 				transferables: transferables
 			};
 		}.bind(this));

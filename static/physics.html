@@ -11,12 +11,22 @@
 		<script src="./dist/fast-sync-component.js"></script>
 	</head>
 	<body>
+
 	<a-scene physics="debug: true;">
-		<a-entity environment="shadow: true; shadowSize: 10; preset: threetowers;" ></a-entity> 
+		<a-assets>
+			<a-asset-item id="student-obj" src="https://ada.is/vr-ada/assets/student/student.obj"></a-asset-item>
+			<a-asset-item id="student-mtl" src="https://ada.is/vr-ada/assets/student/student.mtl"></a-asset-item>
+		</a-assets>
+
+		<a-entity environment="shadow: true; shadowSize: 10; preset: threetowers;" ></a-entity>
+
+		<a-entity id="avatar-template" visible="false" obj-model="obj: #student-obj; mtl: #student-mtl" student-model shadow="receive: false;"></a-entity>
+		<a-entity id="avatar" clone="#avatar-template" visible="false" scale="0.5 0.5 0.5"></a-entity>
+
 		<a-entity circle-around="radius: 6; origin: 0 0 0;">
-			<a-camera rotation="0 180 0"></a-camera>
+			<a-camera rotation="0 180 0" fast-sync="copy: #avatar; world: true; components: clone;"></a-camera>
 		</a-entity>
-	</a-scene>
+	</a-scene>	
 
 
 	<script type="text/html" id="demo1">
