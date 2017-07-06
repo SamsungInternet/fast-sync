@@ -107,6 +107,44 @@ function getNewWS(url, callbacks) {
 	});
 }
 
+function checkForSyncId(el) {
+	if (el.components['fast-sync'].syncId === undefined) return false;
+	return true;
+}
+
+function checkSyncDataChanged(el) {
+
+	var syncDataObj = el.components['fast-sync'].getSyncData();
+	var oldData = el.cachedSyncData || (el.cachedSyncData = new Uint32Array(6));
+	var dirty = false;
+	var oldValue;
+	oldValue = oldData[0];
+	oldData[0] = floatToUint32(syncDataObj.rotation.x);
+	if (oldData[0] !== oldValue) dirty = true;
+
+	oldValue = oldData[1];
+	oldData[1] = floatToUint32(syncDataObj.rotation.y);
+	if (oldData[1] !== oldValue) dirty = true;
+	
+	oldValue = oldData[2];
+	oldData[2] = floatToUint32(syncDataObj.rotation.z);
+	if (oldData[2] !== oldValue) dirty = true;
+	
+	oldValue = oldData[3];
+	oldData[3] = floatToUint32(syncDataObj.position.x);
+	if (oldData[3] !== oldValue) dirty = true;
+	
+	oldValue = oldData[4];
+	oldData[4] = floatToUint32(syncDataObj.position.y);
+	if (oldData[4] !== oldValue) dirty = true;
+	
+	oldValue = oldData[5];
+	oldData[5] = floatToUint32(syncDataObj.position.z);
+	if (oldData[5] !== oldValue) dirty = true;
+
+	return dirty;
+}
+
 AFRAME.registerSystem('fast-sync-controller', {
 	schema: {
 		room: {
@@ -139,28 +177,23 @@ AFRAME.registerSystem('fast-sync-controller', {
 	},
 	throttledTick: function () {
 		if (!this._ws) return;
-		var toSerial = Array.from(this.objects.values())
-		.filter(function (el) {
-			return el.components['fast-sync'].syncId !== undefined;
-		});
+		var toSerial = Array.from(this.objects.values()).filter(checkForSyncId);
+		var filtered = toSerial.filter(checkSyncDataChanged);
 		var count = toSerial.length;
-		if (!count) return;
+		if (!filtered.length) { return; }
 		var bindata = new Uint32Array(2 + 7 * count);
 		var index = 2;
 		bindata[0] = this._ws.id;
 		bindata[1] = count;
 
 		toSerial.forEach(function (el) {
-			var data = el.components['fast-sync'].getSyncData();
-			var pos = data.position;
-			var rot = data.rotation;
 			bindata[0 + index] = el.components['fast-sync'].syncId;
-			bindata[1 + index] = floatToUint32(rot.x);
-			bindata[2 + index] = floatToUint32(rot.y);
-			bindata[3 + index] = floatToUint32(rot.z);
-			bindata[4 + index] = floatToUint32(pos.x);
-			bindata[5 + index] = floatToUint32(pos.y);
-			bindata[6 + index] = floatToUint32(pos.z);
+			bindata[1 + index] = el.cachedSyncData[0];
+			bindata[2 + index] = el.cachedSyncData[1];
+			bindata[3 + index] = el.cachedSyncData[2];
+			bindata[4 + index] = el.cachedSyncData[3];
+			bindata[5 + index] = el.cachedSyncData[4];
+			bindata[6 + index] = el.cachedSyncData[5];
 			index += 7;
 		});
 
@@ -194,8 +227,8 @@ AFRAME.registerSystem('fast-sync-controller', {
 				continue;
 			}
 
-			// Somehow a string made it as binary
 			if (count > 1024) {
+				// Throw away the data.
 				throw Error('Something probably went wrong');
 			}
 
