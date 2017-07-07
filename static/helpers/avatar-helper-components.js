@@ -1,5 +1,6 @@
 /* global AFRAME, THREE */
 /* eslint no-var: 0 */
+'use strict';
 
 AFRAME.registerComponent('ada-model', {
 	schema: {

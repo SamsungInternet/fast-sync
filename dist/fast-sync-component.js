@@ -1,20 +1,11 @@
 'use strict';
-/* global AFRAME, Promise, Uint32Array, Map, Set, THREE */
+/* global AFRAME, Promise, Uint32Array, Map, Set, THREE, Float32Array */
 /* eslint no-var: 0 */
 
 var localObjectTracker = [];
 var connectedUsersIds = new Set();
 var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-var halfMaxUint32 = Math.pow(2,31);
 var radToDeg = 180/Math.PI;
-
-function floatToUint32(n) {
-  return (n * 1000) + halfMaxUint32;
-}
-
-function uint32ToFloat(n) {
-  return (n - halfMaxUint32) / 1000;
-}
 
 // Connection opened
 function getNewWS(url, callbacks) {
@@ -115,31 +106,31 @@ function checkForSyncId(el) {
 function checkSyncDataChanged(el) {
 
 	var syncDataObj = el.components['fast-sync'].getSyncData();
-	var oldData = el.cachedSyncData || (el.cachedSyncData = new Uint32Array(6));
+	var oldData = el.cachedSyncData || (el.cachedSyncData = new Float32Array(6));
 	var dirty = false;
 	var oldValue;
 	oldValue = oldData[0];
-	oldData[0] = floatToUint32(syncDataObj.rotation.x);
+	oldData[0] = syncDataObj.rotation.x;
 	if (oldData[0] !== oldValue) dirty = true;
 
 	oldValue = oldData[1];
-	oldData[1] = floatToUint32(syncDataObj.rotation.y);
+	oldData[1] = syncDataObj.rotation.y;
 	if (oldData[1] !== oldValue) dirty = true;
 	
 	oldValue = oldData[2];
-	oldData[2] = floatToUint32(syncDataObj.rotation.z);
+	oldData[2] = syncDataObj.rotation.z;
 	if (oldData[2] !== oldValue) dirty = true;
 	
 	oldValue = oldData[3];
-	oldData[3] = floatToUint32(syncDataObj.position.x);
+	oldData[3] = syncDataObj.position.x;
 	if (oldData[3] !== oldValue) dirty = true;
 	
 	oldValue = oldData[4];
-	oldData[4] = floatToUint32(syncDataObj.position.y);
+	oldData[4] = syncDataObj.position.y;
 	if (oldData[4] !== oldValue) dirty = true;
 	
 	oldValue = oldData[5];
-	oldData[5] = floatToUint32(syncDataObj.position.z);
+	oldData[5] = syncDataObj.position.z;
 	if (oldData[5] !== oldValue) dirty = true;
 
 	return dirty;
@@ -187,13 +178,14 @@ AFRAME.registerSystem('fast-sync-controller', {
 		bindata[1] = count;
 
 		toSerial.forEach(function (el) {
+			var accessFloatAsInt = new Uint32Array(el.cachedSyncData.buffer);
 			bindata[0 + index] = el.components['fast-sync'].syncId;
-			bindata[1 + index] = el.cachedSyncData[0];
-			bindata[2 + index] = el.cachedSyncData[1];
-			bindata[3 + index] = el.cachedSyncData[2];
-			bindata[4 + index] = el.cachedSyncData[3];
-			bindata[5 + index] = el.cachedSyncData[4];
-			bindata[6 + index] = el.cachedSyncData[5];
+			bindata[1 + index] = accessFloatAsInt[0];
+			bindata[2 + index] = accessFloatAsInt[1];
+			bindata[3 + index] = accessFloatAsInt[2];
+			bindata[4 + index] = accessFloatAsInt[3];
+			bindata[5 + index] = accessFloatAsInt[4];
+			bindata[6 + index] = accessFloatAsInt[5];
 			index += 7;
 		});
 
@@ -238,15 +230,16 @@ AFRAME.registerSystem('fast-sync-controller', {
 				if (this.foreignObjects.has(id + ',' + syncId)) {
 					// sync rotation and position
 					var el = this.foreignObjects.get(id + ',' + syncId);
+					var accessIntAsFloat = new Float32Array(message.buffer, (index + 3) * 4, 6);
 					el.setAttribute('rotation', {
-						x: uint32ToFloat(message[index + 3]),
-						y: uint32ToFloat(message[index + 4]),
-						z: uint32ToFloat(message[index + 5])
+						x: accessIntAsFloat[0],
+						y: accessIntAsFloat[1],
+						z: accessIntAsFloat[2]
 					});
 					el.setAttribute('position', {
-						x: uint32ToFloat(message[index + 6]),
-						y: uint32ToFloat(message[index + 7]),
-						z: uint32ToFloat(message[index + 8])
+						x: accessIntAsFloat[3],
+						y: accessIntAsFloat[4],
+						z: accessIntAsFloat[5]
 					});
 				}
 				index += 7;
