@@ -56,7 +56,7 @@ As well as any components defined in components.
 
 ```
 <a-box fast-sync="components: foo;" foo="bar">
-			<a-animation from="0 0 0" to="0 90 0" repeat="indefinite" easing="linear" end="stolen"></a-animation> 
+	<a-animation from="0 0 0" to="0 90 0" repeat="indefinite" easing="linear" end="stolen"></a-animation> 
 </a-box>
 ```
 
