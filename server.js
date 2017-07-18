@@ -1,7 +1,3 @@
-/*
-* Refactor as a node module.
-*/
-
 /* eslint-env es6 */
 /* eslint no-console: 0 */
 'use strict';
