@@ -12,7 +12,7 @@ npm install --save fast-sync
 
 ## In your server:
 
-There is a complete example in [server.js](https://github.com/AdaRoseEdwards/fast-sync/blob/master/server.js)
+There is a complete example in [the demo](https://glitch.com/edit/#!/fast-sync?path=server.js:1:0)
 
 ```
 const server = require('http').createServer();
