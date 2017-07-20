@@ -1,6 +1,6 @@
 {
   "name": "fast-sync",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "A-Frame component for Syncing over Web Sockets",
   "main": "./lib/fast-sync.js",
   "dependencies": {
