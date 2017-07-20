@@ -43,7 +43,7 @@ function getNewWS(url, callbacks) {
 						}
 					});
 					Array.from(connectedUsersIds)
-					.filter(function (id) {
+					.forEach(function (id) {
 						if (!newUsers.has(id)) {
 							callbacks.userLeaveCallback(id);
 							connectedUsersIds.delete(ws, id);
@@ -156,9 +156,16 @@ AFRAME.registerSystem('fast-sync-controller', {
 			stealEl: this.onstealel.bind(this),
 			userLeaveCallback: function (id) {
 				/* eslint-disable no-console */
-				console.log(id);
+
+				// Find and clean up any elements belonging to that user.
+				var els = Array.from(this.el.querySelectorAll('[fast-sync-listener^="original-creator: ' + id + ';"]'));
+				els.forEach(function (el) {
+					el.parentNode.removeChild(el);
+				});
+
+				console.log('User left', id);
 				/* eslint-enable no-console */
-			}
+			}.bind(this)
 		});
 		this.getWs(function (ws) {
 			ws.send(JSON.stringify(['HANDSHAKE', this.data.room]));
@@ -266,7 +273,7 @@ AFRAME.registerSystem('fast-sync-controller', {
 			this.foreignObjects.set(fOId, el);
 		}
 
-		Element.prototype.setAttribute.call(el, 'fast-sync-listener', 'original-creator: ' + id + ' ; sync-id: ' + details.syncId + ';');			
+		Element.prototype.setAttribute.call(el, 'fast-sync-listener', 'original-creator: ' + id + '; sync-id: ' + details.syncId + ';');			
 		el._fastSyncConfig = details.config;
 		el.transferables = details.transferables;
 	},

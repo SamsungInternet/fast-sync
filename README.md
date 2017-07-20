@@ -61,7 +61,3 @@ As well as any components defined in components.
 ```
 
 30 times a second it will sync it's position with the server.
-
-## TODO
-
-Fire disconnect events and clean up nicely when a user leaves. Inorder to make it so that a single server can stay running indefinitely with users coming and going.
