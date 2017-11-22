@@ -13,5 +13,10 @@
     "start": "node server.js"
   },
   "author": "Ada Rose Edwards",
-  "license": "MIT"
+  "license": "MIT",
+  "prettier": {
+	  "useTabs": true,
+	  "singleQuote": true,
+	  "bracketSpacing": true
+  }
 }
