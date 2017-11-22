@@ -1,6 +1,6 @@
 {
   "name": "fast-sync",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A-Frame component for Syncing over Web Sockets",
   "main": "./lib/fast-sync.js",
   "dependencies": {
@@ -15,8 +15,8 @@
   "author": "Ada Rose Edwards",
   "license": "MIT",
   "prettier": {
-	  "useTabs": true,
-	  "singleQuote": true,
-	  "bracketSpacing": true
+    "useTabs": true,
+    "singleQuote": true,
+    "bracketSpacing": true
   }
 }
